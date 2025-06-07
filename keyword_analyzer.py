@@ -5,6 +5,7 @@ Keyword Trend Analyzer - A tool to analyze keyword trends using Google Trends AP
 
 import os
 import time
+import argparse
 from typing import Dict, List, Optional
 import pandas as pd
 from pytrends.request import TrendReq
@@ -24,13 +25,14 @@ class KeywordTrendAnalyzer:
             '1m': 'now 1-m'
         }
 
-    def analyze_keywords(self, keywords: List[str]) -> pd.DataFrame:
-        """Analyze trends for a list of keywords."""
+    def analyze_keywords(self, keywords_df: pd.DataFrame) -> pd.DataFrame:
+        """Analyze trends for a list of keywords from a DataFrame."""
         results = []
         
-        for kw in keywords:
-            print(f"Analyzing keyword: {kw}")
-            avg_data = self._get_average_data(kw)
+        for _, row in keywords_df.iterrows():
+            keyword = row['Keyword']
+            print(f"Analyzing keyword: {keyword}")
+            avg_data = self._get_average_data(keyword)
             
             # Calculate trends if we have enough data
             if avg_data.get('1y') and avg_data.get('3m'):
@@ -39,7 +41,7 @@ class KeywordTrendAnalyzer:
                 trend = 'N/A'
 
             results.append({
-                "Keyword": kw,
+                "Keyword": keyword,
                 "1Y Avg": avg_data.get('1y'),
                 "3M Avg": avg_data.get('3m'),
                 "1M Avg": avg_data.get('1m'),
@@ -72,31 +74,39 @@ class KeywordTrendAnalyzer:
         return avg_data
 
 def main():
-    # Example keywords - replace with your own
-    keywords = [
-        "conversation starters for dating",
-        "emotional regulation app",
-        "conflict resolution in relationships",
-        "active listening techniques",
-        "body language in dating",
-        "social anxiety dating",
-        "communication style quiz"
-    ]
+    # Set up argument parser
+    parser = argparse.ArgumentParser(description='Analyze keyword trends using Google Trends API')
+    parser.add_argument('--input', '-i', default='keywords.csv',
+                      help='Input CSV file containing keywords (default: keywords.csv)')
+    parser.add_argument('--output', '-o', default='keyword_trends_comparison.csv',
+                      help='Output CSV file for results (default: keyword_trends_comparison.csv)')
+    parser.add_argument('--geo', '-g', default='US',
+                      help='Geographic region for analysis (default: US)')
+    
+    args = parser.parse_args()
+
+    # Read keywords from CSV
+    try:
+        keywords_df = pd.read_csv(args.input)
+        if 'Keyword' not in keywords_df.columns:
+            raise ValueError("CSV file must contain a 'Keyword' column")
+    except Exception as e:
+        print(f"Error reading input file: {str(e)}")
+        return
 
     # Initialize analyzer
-    analyzer = KeywordTrendAnalyzer()
+    analyzer = KeywordTrendAnalyzer(geo=args.geo)
     
     # Analyze keywords
-    results_df = analyzer.analyze_keywords(keywords)
+    results_df = analyzer.analyze_keywords(keywords_df)
     
     # Display results
     print("\nResults:")
     print(results_df)
     
     # Save to CSV
-    output_file = "keyword_trends_comparison.csv"
-    results_df.to_csv(output_file, index=False)
-    print(f"\nResults saved to {output_file}")
+    results_df.to_csv(args.output, index=False)
+    print(f"\nResults saved to {args.output}")
 
 if __name__ == "__main__":
     main() 
